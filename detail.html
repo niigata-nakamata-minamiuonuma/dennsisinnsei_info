@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>申込詳細</title>
+
+<style>
+body{
+  font-family:sans-serif;
+  margin:0;
+  background:#f5f5f5;
+}
+
+.header{
+  background:white;
+  padding:15px;
+  border-bottom:1px solid #ddd;
+  font-weight:bold;
+}
+
+.container{
+  background:white;
+  margin:10px;
+  padding:20px;
+  border-radius:12px;
+}
+
+.number{
+  font-size:28px;
+  font-weight:bold;
+  word-break:break-all;
+}
+
+.status{
+  display:inline-block;
+  margin-top:5px;
+  padding:4px 10px;
+  border-radius:5px;
+  background:#4caf50;
+  color:white;
+}
+
+.status.cancel{
+  background:#f44336;
+}
+
+.message{
+  margin-top:15px;
+  font-size:18px;
+}
+
+.title{
+  margin-top:25px;
+  margin-bottom:10px;
+  font-weight:bold;
+}
+
+.title::before{
+  content:"❚ ";
+}
+
+.step{
+  display:flex;
+  align-items:center;
+  margin:5px 0;
+}
+
+.circle{
+  width:14px;
+  height:14px;
+  border-radius:50%;
+  margin-right:10px;
+  flex-shrink:0;
+}
+
+.done{
+  background:#ff4081;
+}
+
+.todo{
+  border:2px solid #ccc;
+}
+
+.gray{
+  color:#aaa;
+}
+
+.line{
+  height:20px;
+  width:2px;
+  background:#ccc;
+  margin-left:6px;
+}
+
+.fee{
+  display:flex;
+  justify-content:space-between;
+  padding:5px 0;
+  border-bottom:1px solid #eee;
+}
+
+#loading{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(255,255,255,0.9);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  z-index:9999;
+}
+
+#loading img{
+  width:80px;
+  margin-bottom:10px;
+}
+
+.error{
+  color:red;
+  text-align:center;
+  margin-top:20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  Niigata-Nakamata-Minamiuonuma｜マイページ
+</div>
+
+<div id="loading">
+  <img src="https://i.imgur.com/llF5iyg.gif">
+  <div>読み込み中...</div>
+</div>
+
+<div class="container">
+
+  <div id="number" class="number"></div>
+
+  <div id="status" class="status"></div>
+
+  <div id="message" class="message"></div>
+
+  <div class="title">進行状況</div>
+  <div id="steps"></div>
+
+  <div class="title">料金</div>
+  <div id="fees"></div>
+
+</div>
+
+<script>
+
+const apiURL =
+"https://script.google.com/macros/s/AKfycby7pzM5bKRAVBc_2uGl_dGVP8cRQi2fnH5zu_juLNc6gLM3ygPqNEyhJBeEuiCWTRuQ/exec";
+
+// URLから番号取得
+const number =
+new URLSearchParams(location.search).get("number");
+
+let firstLoad = true;
+
+function load(){
+
+  if(firstLoad){
+    document.getElementById("loading").style.display = "flex";
+  }
+
+  return fetch(apiURL)
+
+  .then(res => {
+
+    if(!res.ok){
+      throw new Error("通信失敗");
+    }
+
+    return res.json();
+
+  })
+
+  .then(data => {
+
+    console.log(data);
+
+    // numberで検索
+    const item = data.find(
+      x => String(x.number) === String(number)
+    );
+
+    // 見つからない
+    if(!item){
+
+      document.querySelector(".container").innerHTML = `
+        <div class="error">
+          データが見つかりません
+        </div>
+      `;
+
+      return;
+    }
+
+    // 番号
+    document.getElementById("number").innerText =
+      item.number ?? "";
+
+    // ステータス
+    const statusEl =
+      document.getElementById("status");
+
+    statusEl.innerText =
+      item.status ?? "";
+
+    statusEl.className = "status";
+
+    if(item.status === "キャンセル"){
+      statusEl.classList.add("cancel");
+    }
+
+    // メッセージ
+    document.getElementById("message").innerText =
+      item.message ?? "";
+
+    // steps
+    const steps =
+      item.steps
+      ? item.steps.split(",")
+      : [];
+
+    const currentIndex =
+      steps.indexOf(item.status);
+
+    const stepsDiv =
+      document.getElementById("steps");
+
+    stepsDiv.innerHTML = "";
+
+    steps.forEach((step, i) => {
+
+      const div =
+        document.createElement("div");
+
+      div.className = "step";
+
+      const circle =
+        document.createElement("div");
+
+      if(i <= currentIndex){
+
+        circle.className = "circle done";
+
+      }else{
+
+        circle.className = "circle todo";
+
+        div.classList.add("gray");
+      }
+
+      div.appendChild(circle);
+
+      div.appendChild(
+        document.createTextNode(step)
+      );
+
+      stepsDiv.appendChild(div);
+
+      if(i < steps.length - 1){
+
+        const line =
+          document.createElement("div");
+
+        line.className = "line";
+
+        stepsDiv.appendChild(line);
+      }
+
+    });
+
+    // fees
+    const fees =
+      item.fees
+      ? item.fees.split(",")
+      : [];
+
+    const feeDiv =
+      document.getElementById("fees");
+
+    feeDiv.innerHTML = "";
+
+    if(fees.length === 0){
+
+      feeDiv.innerHTML = `
+        <div style="color:gray;">
+          料金情報なし
+        </div>
+      `;
+
+    }else{
+
+      fees.forEach(f => {
+
+        if(!f.includes(":")) return;
+
+        const [name, price] = f.split(":");
+
+        const div =
+          document.createElement("div");
+
+        div.className = "fee";
+
+        div.innerHTML = `
+          <span>${name}</span>
+          <span>¥${price}</span>
+        `;
+
+        feeDiv.appendChild(div);
+
+      });
+
+    }
+
+  })
+
+  .catch(err => {
+
+    console.error(err);
+
+    document.querySelector(".container").innerHTML = `
+      <div class="error">
+        通信エラーが発生しました
+      </div>
+    `;
+
+  })
+
+  .finally(() => {
+
+    if(firstLoad){
+
+      document.getElementById("loading").style.display = "none";
+
+      firstLoad = false;
+
+    }
+
+  });
+
+}
+
+// 初回
+load();
+
+// 3秒ごと更新
+setInterval(load, 3000);
+
+</script>
+
+</body>
+</html>

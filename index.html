@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192x192.png">
+
+<title>オンライン電子申請情報照会サービス</title>
+
+<style>
+body{
+  font-family:sans-serif;
+  margin:0;
+  background:#f0f0f0;
+}
+
+.header{
+  background:white;
+  padding:15px;
+  border-bottom:1px solid #ddd;
+  font-weight:bold;
+}
+
+.card{
+  background:white;
+  margin:10px;
+  padding:15px;
+  border-radius:10px;
+  cursor:pointer;
+  box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+.card:hover{
+  background:#fafafa;
+}
+
+.status{
+  float:right;
+  padding:3px 10px;
+  border-radius:5px;
+  background:#4caf50;
+  color:white;
+  font-size:12px;
+}
+
+.status.cancel{
+  background:#f44336;
+}
+
+.date{
+  font-size:12px;
+  color:gray;
+  margin-bottom:5px;
+}
+
+#loading{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(255,255,255,0.95);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  z-index:9999;
+}
+
+#loading img{
+  width:80px;
+  margin-bottom:10px;
+}
+
+.error{
+  text-align:center;
+  color:red;
+  margin-top:30px;
+}
+
+@media (min-width:600px){
+  .card{
+    width:500px;
+    margin:10px auto;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  Niigata-Nakamata-Minamiuonuma｜マイページ
+</div>
+
+<div id="loading">
+  <img src="sozai_cman_jp_20260416184642.gif">
+  <div>読み込み中...</div>
+</div>
+
+<div id="list"></div>
+
+<script>
+
+const apiURL =
+"https://script.google.com/macros/s/AKfycby7pzM5bKRAVBc_2uGl_dGVP8cRQi2fnH5zu_juLNc6gLM3ygPqNEyhJBeEuiCWTRuQ/exec";
+
+function load(){
+
+  document.getElementById("loading").style.display = "flex";
+
+  return fetch(apiURL)
+  .then(res => {
+
+    if(!res.ok){
+      throw new Error("通信失敗");
+    }
+
+    return res.json();
+  })
+
+  .then(data => {
+
+    console.log(data);
+
+    const list = document.getElementById("list");
+
+    list.innerHTML = "";
+
+    data.forEach(item => {
+
+      const statusClass =
+        item.status === "キャンセル"
+        ? "status cancel"
+        : "status";
+
+      const card = document.createElement("div");
+
+      card.className = "card";
+
+      card.innerHTML = `
+        <div class="date">${item.date ?? ""}</div>
+
+        <div>
+          ${item.number ?? ""}
+          <span class="${statusClass}">
+            ${item.status ?? ""}
+          </span>
+        </div>
+
+        <div style="margin-top:8px;">
+          ${item.message ?? ""}
+        </div>
+      `;
+
+      // 詳細画面へ
+      card.onclick = () => {
+
+        location.href =
+          "detail.html?number=" +
+          encodeURIComponent(item.number);
+
+      };
+
+      list.appendChild(card);
+
+    });
+
+  })
+
+  .catch(err => {
+
+    console.error(err);
+
+    document.getElementById("list").innerHTML = `
+      <div class="error">
+        通信エラーが発生しました
+      </div>
+    `;
+
+  })
+
+  .finally(() => {
+
+    document.getElementById("loading").style.display = "none";
+
+  });
+
+}
+
+function loop(){
+
+  load()
+  .finally(() => {
+
+    setTimeout(loop, 900000);
+
+  });
+
+}
+
+loop();
+
+</script>
+
+<!-- Service Worker -->
+<script>
+
+if("serviceWorker" in navigator){
+
+  window.addEventListener("load", () => {
+
+    navigator.serviceWorker.register("/sw.js")
+
+    .then(registration => {
+
+      console.log(
+        "Service Worker registered:",
+        registration.scope
+      );
+
+    })
+
+    .catch(err => {
+
+      console.log(
+        "Service Worker registration failed:",
+        err
+      );
+
+    });
+
+  });
+
+}
+
+</script>
+
+</body>
+</html>
